@@ -1,0 +1,1 @@
+# setevoy-aws-templates
