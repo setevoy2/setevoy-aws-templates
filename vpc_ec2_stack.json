@@ -1,0 +1,378 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation stack with VPC, ACL, EC2, EBS",
+
+  "Parameters" : {
+
+    "JenkinsIP": {
+      "Description": "Jenkins IP to allow SSH for Ansible/AWS CLI",
+      "Type": "String",
+      "Default": "0.0.0.0/0"
+    },
+
+    "VPCCIDRBlock": {
+      "Description": "VPC CidrBlock",
+      "Type": "String",
+      "Default": "10.0.0.0/16"
+    },
+
+    "PublicSubnetCIDR": {
+      "Description": "Public Subnet CIDR",
+      "Type": "String",
+      "Default": "10.0.1.0/24"
+    },
+
+    "ENV": {
+      "Description": "Environment type - dev or production.",
+      "Type": "String",
+      "AllowedValues": [
+        "dev",
+        "production"
+      ],
+      "Default": "dev"
+    },
+
+    "AvalabilityZone": {
+      "Description": "Availability Zone for all resources",
+      "Type": "String",
+      "Default": "eu-west-1a"
+    },
+
+    "OfficeAllowLocation": {
+      "Description": "The office IP address range that can be used to SSH to the EC2 instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "0.0.0.0/0"
+    },
+
+    "HomeAllowLocation": {
+      "Description": "Home IP address range that can be used to SSH to the EC2 instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "0.0.0.0/0"
+    },
+
+    "KeyName": {
+      "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription": "must be the name of an existing EC2 KeyPair.",
+      "Default": "keyname"
+    },
+
+    "AMIID": {
+      "Description": "Debian AMI ID",
+      "Type": "String",
+      "Default": "ami-8a745cf3"
+    },
+
+    "EC2InstanceType": {
+      "Description": "EC2 instance type",
+      "Type": "String",
+      "Default": "t2.nano",
+      "AllowedValues": [
+        "t2.nano",
+        "t2.micro",
+        "t2.small"
+      ],
+      "ConstraintDescription": "Must be a valid EC2 instance type."
+    },
+
+    "EBSsize": {
+      "Description": "Data disk EBS size",
+      "Type": "Number",
+      "Default": "8"
+    }
+
+  },
+
+  "Resources" : {
+
+    "VPC" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : {"Ref" : "VPCCIDRBlock"},
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "vpc"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "PublicSubnet" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : {"Ref" : "PublicSubnetCIDR"},
+        "AvailabilityZone" : {"Ref" : "AvalabilityZone"},
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "public-net"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "InternetGateway" : {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "igw"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "AttachGateway" : {
+       "Type" : "AWS::EC2::VPCGatewayAttachment",
+       "Properties" : {
+         "VpcId" : { "Ref" : "VPC" },
+         "InternetGatewayId" : { "Ref" : "InternetGateway" }
+       }
+    },
+
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": { "Ref": "VPC" },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "public-route"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "PublicRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+
+    "PublicSubnetRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "PublicSubnet"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+
+    "NetACL": {
+      "Type" : "AWS::EC2::NetworkAcl",
+      "Properties" : {
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "pub-acl"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ],
+        "VpcId" : { "Ref" : "VPC"}
+      }
+    },
+
+    "NetACLattach": {
+      "Type" : "AWS::EC2::SubnetNetworkAclAssociation",
+      "Properties" : {
+        "SubnetId" : { "Ref" : "PublicSubnet"},
+        "NetworkAclId" : { "Ref" : "NetACL"}
+      }
+    },
+
+    "NetACLInAllAllow": {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "CidrBlock" : "0.0.0.0/0",
+        "Egress" : false,
+        "NetworkAclId" : { "Ref" : "NetACL"},
+        "Protocol" : -1,
+        "RuleAction" : "Allow",
+        "RuleNumber" : 100
+      }
+    },
+
+    "NetACLOutAllAllow": {
+      "Type" : "AWS::EC2::NetworkAclEntry",
+      "Properties" : {
+        "CidrBlock" : "0.0.0.0/0",
+        "Egress" : true,
+        "NetworkAclId" : { "Ref" : "NetACL"},
+        "Protocol" : -1,
+        "RuleAction" : "Allow",
+        "RuleNumber" : 100
+      }
+    },
+
+    "EC2SecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "sg"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ],
+        "VpcId" : {"Ref" : "VPC"},
+        "GroupDescription" : "Enable access to the Prometheus",
+        "SecurityGroupIngress" : [
+
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : "22",
+            "ToPort" : "22",
+            "CidrIp" : { "Ref" : "JenkinsIP"},
+            "Description": "Jenkins/Ansible SSH allow"
+          },
+
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : "22",
+            "ToPort" : "22",
+            "CidrIp" : { "Ref" : "HomeAllowLocation"},
+            "Description": "Home SSH allow"
+          },
+
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : "22",
+            "ToPort" : "22",
+            "CidrIp" : { "Ref" : "OfficeAllowLocation"},
+            "Description": "Office SSH allow"
+          },
+
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : "80",
+            "ToPort" : "80",
+            "CidrIp" : { "Ref" : "HomeAllowLocation"},
+            "Description": "All HTTP"
+          },
+
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : "443",
+            "ToPort" : "443",
+            "CidrIp" : { "Ref" : "HomeAllowLocation"},
+            "Description": "All HTTPS"
+          },
+
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : "80",
+            "ToPort" : "80",
+            "CidrIp" : "0.0.0.0/0",
+            "Description": "All HTTP"
+          },
+
+          {
+            "IpProtocol" : "tcp",
+            "FromPort" : "443",
+            "ToPort" : "443",
+            "CidrIp" : { "Ref" : "OfficeAllowLocation"},
+            "Description": "All HTTPS"
+          },
+
+          {
+            "IpProtocol" : "icmp",
+            "FromPort" : "8",
+            "ToPort" : "-1",
+            "CidrIp" : { "Ref" : "HomeAllowLocation"},
+            "Description": "Home ping"
+          },
+
+          {
+            "IpProtocol" : "icmp",
+            "FromPort" : "8",
+            "ToPort" : "-1",
+            "CidrIp" : { "Ref" : "OfficeAllowLocation"},
+            "Description": "Office ping"
+          }
+
+        ]
+      }
+    },
+
+    "EC2IPAddress" : {
+      "Type" : "AWS::EC2::EIP",
+      "Properties" : {
+        "Domain" : "vpc"
+      }
+    },
+
+    "EC2DataEBS": {
+       "Type":"AWS::EC2::Volume",
+       "Properties" : {
+          "AvailabilityZone" : {"Ref" : "AvalabilityZone"},
+          "Size" : {"Ref" : "EBSsize"},
+          "Tags" : [
+            {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "data-ebs"] ] } },
+            {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+          ],
+          "VolumeType" : "gp2"
+       }
+    },
+
+    "EC2Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "ec2"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ],
+        "InstanceType" : { "Ref" : "EC2InstanceType" },
+        "SecurityGroupIds" : [
+          {
+            "Ref": "EC2SecurityGroup"
+          }
+        ],
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Ref" : "AMIID"  },
+        "AvailabilityZone": {"Ref" : "AvalabilityZone"},
+        "SubnetId": { "Ref" : "PublicSubnet" },
+        "Volumes" : [
+          {
+           "VolumeId" : { "Ref" : "EC2DataEBS" },
+           "Device" : "/dev/xvdb"
+          }
+        ],
+        "SourceDestCheck": "false"
+      }
+    },
+
+    "EC2EIPAssociation" : {
+      "Type": "AWS::EC2::EIPAssociation",
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "EC2IPAddress",
+            "AllocationId"
+          ]
+         },
+        "InstanceId": {"Ref" : "EC2Instance"}
+      }
+    }
+  },
+
+  "Outputs" : {
+    "EC2PublicIP" : {
+      "Description" : "Public IP address of the EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "EC2Instance", "PublicIp" ] }
+    },
+    "EC2KeyName" : {
+      "Description" : "Key Pair used for access to the EC2",
+      "Value" : {"Ref" : "KeyName"}
+    }
+  }
+
+}
+
