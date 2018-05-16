@@ -51,7 +51,6 @@
     "DBUser": {
       "NoEcho": "true",
       "Description" : "The database admin account username",
-      "Default": "dbadmin",
       "Type": "String",
       "MinLength": "1",
       "MaxLength": "16",
@@ -87,14 +86,6 @@
       "ConstraintDescription" : "must select a valid database instance type."
     },
 
-    "EC2SecurityGroup": {
-      "Description" : "The EC2 security group that contains instances that need access to the database",
-      "Default": "default",
-      "Type": "String",
-      "AllowedPattern" : "[a-zA-Z0-9\\-]+",
-      "ConstraintDescription" : "must be a valid security group name."
-    },
-
     "MasterDBAllowLocation": {
       "Description": "The IP address range that can be used to access RDS instances",
       "Type": "String",
@@ -122,7 +113,7 @@
     },
 
     "PreferredBackupWindow" : {
-      "Description" : "KMSKeyID to use for RDS encryption and the Snapshot decryption",
+      "Description" : "Backups window",
       "Type" : "String",
       "Default" : "08:15-08:45"
     },
