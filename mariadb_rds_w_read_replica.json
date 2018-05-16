@@ -327,7 +327,7 @@
         "VPCSecurityGroups" : [ { "Fn::GetAtt" : [ "MasterDBSecurityGroup", "GroupId" ] } ],
         "MultiAZ": {"Ref" : "MultiAZ" },
         "Tags" : [
-          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "oscar-rds-pg"] ] } },
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "master-rds"] ] } },
           {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
         ]
       }
@@ -343,7 +343,7 @@
         "DBInstanceClass" : { "Ref" : "DBInstanceClass" },
         "VPCSecurityGroups" : [ { "Fn::GetAtt" : [ "ReplicaDBSecurityGroup", "GroupId" ] } ],
         "Tags" : [
-          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "oscar-rds-pg"] ] } },
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "replica-rds"] ] } },
           {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
         ]
       }
