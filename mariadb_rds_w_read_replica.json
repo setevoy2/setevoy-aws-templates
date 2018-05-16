@@ -325,7 +325,7 @@
         "DBSubnetGroupName" : { "Ref" : "DBSubnetGroup" },
         "DBParameterGroupName" : {"Ref" : "DBParamGroup" },
         "VPCSecurityGroups" : [ { "Fn::GetAtt" : [ "MasterDBSecurityGroup", "GroupId" ] } ],
-        "MultiAZ": "true",
+        "MultiAZ": {"Ref" : "MultiAZ" },
         "Tags" : [
           {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "oscar-rds-pg"] ] } },
           {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
