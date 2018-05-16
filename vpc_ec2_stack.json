@@ -33,7 +33,7 @@
       "Default": "dev"
     },
 
-    "AvalabilityZone": {
+    "AvailabilityZone": {
       "Description": "Availability Zone for all resources",
       "Type": "String",
       "Default": "eu-west-1a"
@@ -110,7 +110,7 @@
       "Properties" : {
         "VpcId" : { "Ref" : "VPC" },
         "CidrBlock" : {"Ref" : "PublicSubnetCIDR"},
-        "AvailabilityZone" : {"Ref" : "AvalabilityZone"},
+        "AvailabilityZone" : {"Ref" : "AvailabilityZone"},
         "Tags" : [
           {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "public-net"] ] } },
           {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
@@ -255,7 +255,7 @@
             "FromPort" : "80",
             "ToPort" : "80",
             "CidrIp" : { "Ref" : "HomeAllowLocation"},
-            "Description": "All HTTP"
+            "Description": "Allow HTTP from home"
           },
 
           {
@@ -263,15 +263,15 @@
             "FromPort" : "443",
             "ToPort" : "443",
             "CidrIp" : { "Ref" : "HomeAllowLocation"},
-            "Description": "All HTTPS"
+            "Description": "Allow HTTPS from home"
           },
 
           {
             "IpProtocol" : "tcp",
             "FromPort" : "80",
             "ToPort" : "80",
-            "CidrIp" : "0.0.0.0/0",
-            "Description": "All HTTP"
+            "CidrIp" : { "Ref" : "OfficeAllowLocation"},
+            "Description": "Allow HTTP from the office"
           },
 
           {
@@ -279,7 +279,7 @@
             "FromPort" : "443",
             "ToPort" : "443",
             "CidrIp" : { "Ref" : "OfficeAllowLocation"},
-            "Description": "All HTTPS"
+            "Description": "Allow HTTPS from the office"
           },
 
           {
@@ -312,7 +312,7 @@
     "EC2DataEBS": {
        "Type":"AWS::EC2::Volume",
        "Properties" : {
-          "AvailabilityZone" : {"Ref" : "AvalabilityZone"},
+          "AvailabilityZone" : {"Ref" : "AvailabilityZone"},
           "Size" : {"Ref" : "EBSsize"},
           "Tags" : [
             {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "data-ebs"] ] } },
@@ -337,7 +337,7 @@
         ],
         "KeyName" : { "Ref" : "KeyName" },
         "ImageId" : { "Ref" : "AMIID"  },
-        "AvailabilityZone": {"Ref" : "AvalabilityZone"},
+        "AvailabilityZone": {"Ref" : "AvailabilityZone"},
         "SubnetId": { "Ref" : "PublicSubnet" },
         "Volumes" : [
           {

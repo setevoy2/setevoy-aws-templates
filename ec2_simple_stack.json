@@ -8,7 +8,7 @@
     "InstanceType": {
       "Description": "EC2 instance type",
       "Type": "String",
-      "Default": "t2.micro",
+      "Default": "t2.nano",
       "AllowedValues": [
         "t2.nano",
         "t2.micro",
