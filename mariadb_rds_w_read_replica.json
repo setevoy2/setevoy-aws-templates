@@ -30,27 +30,10 @@
       "Default": "10.0.16.0/28"
     },
 
-    "MasterDBInstanceName": {
-      "Default": "master-rds",
-      "Description" : "Master DB instance name",
-      "Type": "String",
-      "MinLength": "1",
-      "MaxLength": "15",
-      "AllowedPattern" : "[a-zA-Z-][a-zA-Z0-9-]*"
-    },
-
-    "ReplicaDBInstanceName": {
-      "Default": "replica-rds",
-      "Description" : "Replica DB instance name",
-      "Type": "String",
-      "MinLength": "1",
-      "MaxLength": "15",
-      "AllowedPattern" : "[a-zA-Z-][a-zA-Z0-9-]*"
-    },
-
     "DBUser": {
       "NoEcho": "true",
       "Description" : "The database admin account username",
+      "Default": "dbadmin",
       "Type": "String",
       "MinLength": "1",
       "MaxLength": "16",
@@ -61,6 +44,7 @@
     "DBPassword": {
       "NoEcho": "true",
       "Description" : "The database admin account password",
+      "Default": "dbpassw0rd",
       "Type": "String",
       "MinLength": "1",
       "MaxLength": "41",
@@ -319,7 +303,7 @@
     "MasterRDS" : {
       "Type" : "AWS::RDS::DBInstance",
       "Properties" : {
-        "DBInstanceIdentifier" : { "Ref" : "MasterDBInstanceName" },
+        "DBInstanceIdentifier" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "master-rds"] ] },
         "AllocatedStorage" : { "Ref" : "DBAllocatedStorage" },
         "AutoMinorVersionUpgrade": false,
         "PubliclyAccessible" : false,
@@ -343,7 +327,7 @@
     "ReplicaRDS" : {
       "Type" : "AWS::RDS::DBInstance",
       "Properties" : {
-        "DBInstanceIdentifier" : { "Ref" : "ReplicaDBInstanceName" },
+        "DBInstanceIdentifier" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "replica-rds"] ] },
         "AutoMinorVersionUpgrade": false,
         "PubliclyAccessible" : true,
         "SourceDBInstanceIdentifier" : { "Ref" : "MasterRDS" },
