@@ -1,0 +1,377 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation template MariaDB RDS with read replica",
+
+  "Parameters": {
+
+    "ENV": {
+      "Description": "Environment type: mariadb-rds-dev or mariadb-rds-production.",
+      "Type": "String",
+      "Default": "mariadb-rds-dev",
+      "AllowedValues" : [ "mariadb-rds-dev", "mariadb-rds-production" ]
+    },
+
+    "VPCCIDRBlock": {
+      "Description": "VPC CIDR block",
+      "Type": "String",
+      "Default": "10.0.0.0/16"
+    },
+
+    "Subnet1aCIDR": {
+      "Description": "Public Subnet CIDR, zone A",
+      "Type": "String",
+      "Default": "10.0.1.0/28"
+    },
+
+    "Subnet1bCIDR": {
+      "Description": "Public Subnet CIDR, zone B",
+      "Type": "String",
+      "Default": "10.0.16.0/28"
+    },
+
+    "DBUser": {
+      "NoEcho": "true",
+      "Description" : "The database admin account username",
+      "Default": "dbadmin",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "16",
+      "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*",
+      "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
+    },
+
+    "DBPassword": {
+      "NoEcho": "true",
+      "Description" : "The database admin account password",
+      "Default": "dbpassw0rd",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "41",
+      "AllowedPattern" : "[a-zA-Z0-9]+",
+      "ConstraintDescription" : "must contain only alphanumeric characters."
+    },
+
+    "DBAllocatedStorage": {
+      "Default": "5",
+      "Description" : "The size of the database (Gb)",
+      "Type": "Number",
+      "MinValue": "5",
+      "MaxValue": "1024",
+      "ConstraintDescription" : "must be between 5 and 1024Gb."
+    },
+
+    "DBInstanceClass": {
+      "Description" : "The database instance type",
+      "Type": "String",
+      "Default": "db.t2.small",
+      "AllowedValues" : [ "db.t1.micro", "db.m1.small", "db.m1.medium", "db.m1.large", "db.m1.xlarge", "db.m2.xlarge", "db.m2.2xlarge", "db.m2.4xlarge", "db.m3.medium", "db.m3.large", "db.m3.xlarge", "db.m3.2xlarge", "db.m4.large", "db.m4.xlarge", "db.m4.2xlarge", "db.m4.4xlarge", "db.m4.10xlarge", "db.r3.large", "db.r3.xlarge", "db.r3.2xlarge", "db.r3.4xlarge", "db.r3.8xlarge", "db.m2.xlarge", "db.m2.2xlarge", "db.m2.4xlarge", "db.cr1.8xlarge", "db.t2.micro", "db.t2.small", "db.t2.medium", "db.t2.large"]
+,
+      "ConstraintDescription" : "must select a valid database instance type."
+    },
+
+    "EC2SecurityGroup": {
+      "Description" : "The EC2 security group that contains instances that need access to the database",
+      "Default": "default",
+      "Type": "String",
+      "AllowedPattern" : "[a-zA-Z0-9\\-]+",
+      "ConstraintDescription" : "must be a valid security group name."
+    },
+
+    "MasterDBAllowLocation": {
+      "Description": "The IP address range that can be used to access RDS instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "0.0.0.0/0"
+    },
+
+    "ReplicaDBAllowLocation": {
+      "Description": "The IP address range that can be used to access RDS instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "0.0.0.0/0"
+    },
+
+    "BackupRetentionPeriod" : {
+      "Description" : "Days to keep backups",
+      "Type" : "String",
+      "Default" : "30"
+    },
+
+    "PreferredBackupWindow" : {
+      "Description" : "Backups window",
+      "Type" : "String",
+      "Default" : "08:15-08:45"
+    },
+
+    "MultiAZ" : {
+      "Description" : "Multi-AZ master instance",
+      "Type" : "String",
+      "Default" : "true",
+      "AllowedValues" : [ "true", "false" ],
+      "ConstraintDescription" : "must be true or false."
+    },
+
+    "DBSnapshotIdentifier" : {
+      "Description" : "Encrypted snapshot name to restore RDS instance from",
+      "Type" : "String",
+      "Default" : "rds-test-encrypted-snapshot"
+    }
+
+  },
+
+  "Mappings" : {
+    "SubnetsAZs" : {
+      "subnets" : {
+        "Subnet1a" : "us-east-2a",
+        "Subnet1b" : "us-east-2b"
+      }
+    }
+  },
+
+  "Resources" : {
+
+    "VPC" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : {"Ref" : "VPCCIDRBlock"},
+        "EnableDnsSupport" : "true",
+        "EnableDnsHostnames" : "true",
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "vpc"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "Subnet1a" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : {"Ref" : "Subnet1aCIDR"},
+        "AvailabilityZone" : { "Fn::FindInMap" : [ "SubnetsAZs", "subnets", "Subnet1a" ] },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "subnet-a"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "Subnet1b" : {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : {"Ref" : "Subnet1bCIDR"},
+        "AvailabilityZone" : { "Fn::FindInMap" : [ "SubnetsAZs", "subnets", "Subnet1b" ] },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "subnet-b"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "InternetGateway" : {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "igw"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "AttachGateway" : {
+       "Type" : "AWS::EC2::VPCGatewayAttachment",
+       "Properties" : {
+         "VpcId" : { "Ref" : "VPC" },
+         "InternetGatewayId" : { "Ref" : "InternetGateway" }
+       }
+    },
+
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": { "Ref": "VPC" },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "public-route"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "PublicRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+
+    "SubnetARouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "Subnet1a"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+
+    "SubnetBRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "Subnet1b"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+
+    "MasterDBSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "MariaDB server Access",
+        "VpcId"            : { "Ref": "VPC" },
+        "SecurityGroupIngress" : [
+          {
+            "IpProtocol" : "tcp",
+            "FromPort"   : 3306,
+            "ToPort"     : 3306,
+            "CidrIp"     : { "Ref": "MasterDBAllowLocation" }
+          }
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "master-db-sg"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "ReplicaDBSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "MariaDB server Access",
+        "VpcId"            : { "Ref": "VPC" },
+        "SecurityGroupIngress" : [
+          {
+            "IpProtocol" : "tcp",
+            "FromPort"   : 3306,
+            "ToPort"     : 3306,
+            "CidrIp"     : { "Ref": "ReplicaDBAllowLocation" }
+          }
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "replica-db-sg"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "DBSubnetGroup" : {
+      "Type" : "AWS::RDS::DBSubnetGroup",
+      "Properties" : {
+        "DBSubnetGroupDescription" : "DB Subnets",
+        "SubnetIds" : [
+          { "Ref": "Subnet1a" },
+          { "Ref": "Subnet1b" }
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "db-subnet-group"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "DBParamGroup": {
+      "Type": "AWS::RDS::DBParameterGroup",
+      "Properties": {
+        "Description": "Database Parameter Group",
+        "Family": "mariadb10.1",
+        "Parameters" : {
+          "general_log" : 1,
+          "slow_query_log": 1,
+          "log_queries_not_using_indexes": 1
+        },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "db-params"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "MasterRDS" : {
+      "Type" : "AWS::RDS::DBInstance",
+      "Properties" : {
+        "DBInstanceIdentifier" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "master-rds"] ] },
+        "DBSnapshotIdentifier": { "Ref" : "DBSnapshotIdentifier" },
+        "AllocatedStorage" : { "Ref" : "DBAllocatedStorage" },
+        "StorageType": "gp2",
+        "AutoMinorVersionUpgrade": false,
+        "PubliclyAccessible" : false,
+        "DBInstanceClass" : { "Ref" : "DBInstanceClass" },
+        "DBSubnetGroupName" : { "Ref" : "DBSubnetGroup" },
+        "DBParameterGroupName" : {"Ref" : "DBParamGroup" },
+        "BackupRetentionPeriod": {"Ref" : "BackupRetentionPeriod" },
+        "PreferredBackupWindow": {"Ref" : "PreferredBackupWindow" },
+        "VPCSecurityGroups" : [ { "Fn::GetAtt" : [ "MasterDBSecurityGroup", "GroupId" ] } ],
+        "MultiAZ": {"Ref" : "MultiAZ" },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "master-rds"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "ReplicaRDS" : {
+      "Type" : "AWS::RDS::DBInstance",
+      "Properties" : {
+        "DBInstanceIdentifier" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "replica-rds"] ] },
+        "SourceDBInstanceIdentifier" : { "Ref" : "MasterRDS" },
+        "AutoMinorVersionUpgrade": false,
+        "PubliclyAccessible" : true,
+        "VPCSecurityGroups" : [ { "Fn::GetAtt" : [ "ReplicaDBSecurityGroup", "GroupId" ] } ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "replica-rds"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    }
+  },
+
+  "Outputs" : {
+
+    "MasterJDBCConnectionString": {
+      "Description" : "JDBC connection string for the master database",
+      "Value" : { "Fn::Join": [ "", [ "jdbc:mysql://",
+                                      { "Fn::GetAtt": [ "MasterRDS", "Endpoint.Address" ] },
+                                      ":",
+                                      { "Fn::GetAtt": [ "MasterRDS", "Endpoint.Port" ] },
+                                      "/dbname,"
+                                      ]]}
+    },
+    "ReplicaJDBCConnectionString": {
+      "Description" : "JDBC connection string for the replica database",
+      "Value" : { "Fn::Join": [ "", [ "jdbc:mysql://",
+                                      { "Fn::GetAtt": [ "ReplicaRDS", "Endpoint.Address" ] },
+                                      ":",
+                                      { "Fn::GetAtt": [ "ReplicaRDS", "Endpoint.Port" ] },
+                                      "/dbname"
+                                      ]]}
+    }
+  }
+}
