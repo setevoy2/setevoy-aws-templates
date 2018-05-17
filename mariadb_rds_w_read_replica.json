@@ -304,6 +304,11 @@
       "Properties": {
         "Description": "Database Parameter Group",
         "Family": "mariadb10.1",
+        "Parameters" : {
+          "general_log" : 1,
+          "slow_query_log": 1,
+          "log_queries_not_using_indexes": 1
+        },
         "Tags" : [
           {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "db-params"] ] } },
           {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
@@ -324,6 +329,8 @@
         "MasterUserPassword" : { "Ref" : "DBPassword" },
         "DBSubnetGroupName" : { "Ref" : "DBSubnetGroup" },
         "DBParameterGroupName" : {"Ref" : "DBParamGroup" },
+        "BackupRetentionPeriod": {"Ref" : "BackupRetentionPeriod" },
+        "PreferredBackupWindow": {"Ref" : "PreferredBackupWindow" },
         "VPCSecurityGroups" : [ { "Fn::GetAtt" : [ "MasterDBSecurityGroup", "GroupId" ] } ],
         "MultiAZ": {"Ref" : "MultiAZ" },
         "Tags" : [
