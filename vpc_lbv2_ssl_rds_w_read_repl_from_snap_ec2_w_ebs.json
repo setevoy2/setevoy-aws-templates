@@ -1,0 +1,780 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation ",
+
+  "Parameters": {
+
+    "StackRegion": {
+      "Description" : "Region to be used. Use Ohia for testing, N. Virginia for Dev and Production",
+      "Type" : "String",
+      "Default" : "us-east-2"
+    },
+
+    "ENV": {
+      "Description": "Environment type: dev or production",
+      "Type": "String",
+      "Default": "dev",
+      "AllowedValues" : [ "dev", "production" ]
+    },
+
+    "VPCCIDRBlock": {
+      "Description": "VPC CIDR block",
+      "Type": "String",
+      "Default": "10.0.0.0/16"
+    },
+
+    "DBSubnet1aCIDR": {
+      "Description": "RDS public Subnet CIDR, zone A",
+      "Type": "String",
+      "Default": "10.0.1.0/24"
+    },
+
+    "DBSubnet1bCIDR": {
+      "Description": "RDS public Subnet CIDR, zone B",
+      "Type": "String",
+      "Default": "10.0.2.0/24"
+    },
+
+    "EC2Subnet1aCIDR": {
+      "Description": "EC2 public Subnet CIDR, zone B",
+      "Type": "String",
+      "Default": "10.0.3.0/24"
+    },
+
+    "EC2Subnet1bCIDR": {
+      "Description": "EC2 public Subnet CIDR, zone B",
+      "Type": "String",
+      "Default": "10.0.4.0/24"
+    },
+
+    "DBAllocatedStorage": {
+      "Default": "5",
+      "Description" : "RDS storage size (Gb)",
+      "Type": "Number",
+      "MinValue": "5",
+      "MaxValue": "1024",
+      "ConstraintDescription" : "must be between 5 and 1024Gb."
+    },
+
+    "MasterDBInstanceClass": {
+      "Description" : "The database instance type",
+      "Type": "String",
+      "Default": "db.m4.large",
+      "AllowedValues" : [
+        "db.m4.large",
+        "db.m4.xlarge",
+        "db.m4.2xlarge",
+        "db.m4.4xlarge",
+        "db.m4.10xlarge",
+        "db.r3.large",
+        "db.r3.xlarge",
+        "db.r3.2xlarge",
+        "db.r3.4xlarge",
+        "db.r3.8xlarge",
+        "db.t2.small",
+        "db.t2.medium",
+        "db.t2.large",
+        "db.t2.xlarge",
+        "db.t2.2xlarge"
+      ],
+      "ConstraintDescription" : "must select a valid database instance type."
+    },
+
+    "ReplicaDBInstanceClass": {
+      "Description" : "The database instance type",
+      "Type": "String",
+      "Default": "db.t2.small",
+      "AllowedValues" : [
+        "db.m4.large",
+        "db.m4.xlarge",
+        "db.m4.2xlarge",
+        "db.m4.4xlarge",
+        "db.m4.10xlarge",
+        "db.r3.large",
+        "db.r3.xlarge",
+        "db.r3.2xlarge",
+        "db.r3.4xlarge",
+        "db.r3.8xlarge",
+        "db.t2.small",
+        "db.t2.medium",
+        "db.t2.large",
+        "db.t2.xlarge",
+        "db.t2.2xlarge"
+      ],
+      "ConstraintDescription" : "must select a valid database instance type."
+    },
+
+    "BackupRetentionPeriod" : {
+      "Description" : "Days to keep backups",
+      "Type" : "String",
+      "Default" : "30"
+    },
+
+    "PreferredBackupWindow" : {
+      "Description" : "Backups window",
+      "Type" : "String",
+      "Default" : "08:15-08:45"
+    },
+
+    "MultiAZ" : {
+      "Description" : "Multi-AZ master instance",
+      "Type" : "String",
+      "Default" : "true",
+      "AllowedValues" : [ "true", "false" ],
+      "ConstraintDescription" : "must be true or false."
+    },
+
+    "DBSnapshotIdentifier" : {
+      "Description" : "Encrypted snapshot name to restore RDS instance from",
+      "Type" : "String",
+      "Default" : "snapshot-name"
+    },
+
+    "OfficeAllowLocation1": {
+      "Description": "The IP address range that can be used to access RDS instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "0.0.0.0/0"
+    },
+
+    "OfficeAllowLocation2": {
+      "Description": "The IP address range that can be used to access RDS instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "0.0.0.0/0"
+    },
+
+    "HomeAllowLocation": {
+      "Description": "The IP address range that can be used to access RDS instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x.",
+      "Default": "0.0.0.0/0"
+    },
+
+    "EC2InstanceType": {
+      "Description": "EC2 instance type",
+      "Type": "String",
+      "Default": "t2.micro",
+      "AllowedValues": [
+        "t2.micro",
+        "c5.2xlarge"
+      ],
+      "ConstraintDescription": "Must be a valid EC2 instance type."
+    },
+
+    "AMIID": {
+      "Description": "Debian AMI ID",
+      "Type": "String",
+      "Default": "ami-cf6854aa"
+    },
+
+    "KeyName": {
+      "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription": "must be the name of an existing EC2 KeyPair.",
+      "Default": "keyname"
+    },
+
+    "EC2DataEBSsize": {
+      "Description": "Data disk EBS size",
+      "Type": "Number",
+      "Default": "8"
+    },
+
+    "ACMCert1": {
+      "Description": "ACM SSL ARN cert 1",
+      "Type": "String",
+      "Default": "arn:aws:acm:us-east-2:000000000000:certificate/00000000-0000-0000-0000-00000000"
+    },
+
+    "ACMCert2": {
+      "Description": "ACM SSL ARN cert 2",
+      "Type": "String",
+      "Default": "arn:aws:acm:us-east-2:000000000000:certificate/00000000-0000-0000-0000-00000000"
+    },
+
+    "ACMCert3": {
+      "Description": "ACM SSL ARN cert 3",
+      "Type": "String",
+      "Default": "	arn:aws:acm:us-east-2:000000000000:certificate/00000000-0000-0000-0000-00000000"
+    }
+
+  },
+
+  "Mappings": {
+    "SubnetsAZs" : {
+      "subnets" : {
+        "DBSubnet1a" : "us-east-2a",
+        "DBSubnet1b" : "us-east-2b",
+        "EC2Subnet1a" : "us-east-2a",
+        "EC2Subnet1b" : "us-east-2b"
+      }
+    }
+  },
+
+  "Resources": {
+
+    "VPC": {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : {"Ref" : "VPCCIDRBlock"},
+        "EnableDnsSupport" : "true",
+        "EnableDnsHostnames" : "true",
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "vpc"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "DBSubnet1a": {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : {"Ref" : "DBSubnet1aCIDR"},
+        "AvailabilityZone" : { "Fn::FindInMap" : [ "SubnetsAZs", "subnets", "DBSubnet1a" ] },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "db-subnet-a"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "DBSubnet1b": {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : {"Ref" : "DBSubnet1bCIDR"},
+        "AvailabilityZone" : { "Fn::FindInMap" : [ "SubnetsAZs", "subnets", "DBSubnet1b" ] },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "db-subnet-b"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "EC2Subnet1a": {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : {"Ref" : "EC2Subnet1aCIDR"},
+        "AvailabilityZone" : { "Fn::FindInMap" : [ "SubnetsAZs", "subnets", "EC2Subnet1a" ] },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "ec2-net"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "EC2Subnet1b": {
+      "Type" : "AWS::EC2::Subnet",
+      "Properties" : {
+        "VpcId" : { "Ref" : "VPC" },
+        "CidrBlock" : {"Ref" : "EC2Subnet1bCIDR"},
+        "AvailabilityZone" : { "Fn::FindInMap" : [ "SubnetsAZs", "subnets", "EC2Subnet1b" ] },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "ec2-net"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "InternetGateway": {
+      "Type" : "AWS::EC2::InternetGateway",
+      "Properties" : {
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "igw"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "AttachGateway": {
+       "Type" : "AWS::EC2::VPCGatewayAttachment",
+       "Properties" : {
+         "VpcId" : { "Ref" : "VPC" },
+         "InternetGatewayId" : { "Ref" : "InternetGateway" }
+       }
+    },
+
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": { "Ref": "VPC" },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "public-route"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "PublicRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+
+    "DBSubnet1aRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "DBSubnet1a"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+
+    "DBSubnet1bRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "DBSubnet1b"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+
+    "EC2Subnet1aRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "EC2Subnet1a"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+
+    "EC2Subnet1bRouteTableAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "EC2Subnet1b"
+        },
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        }
+      }
+    },
+
+    "MBApploadBalancer" : {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties": {
+        "Scheme" : "internet-facing",
+        "Subnets" : [ {"Ref": "EC2Subnet1a"}, {"Ref" : "EC2Subnet1b"}],
+        "LoadBalancerAttributes" : [
+          { "Key" : "idle_timeout.timeout_seconds", "Value" : "50" }
+        ],
+        "SecurityGroups": [ {"Ref": "AlbSecurityGroup"} ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "ec2-alb"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "MBAlbHTTPListener": {
+      "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties" : {
+        "DefaultActions": [{
+          "Type": "forward",
+          "TargetGroupArn": { "Ref": "MBAppTargetGroup" }
+        }],
+        "LoadBalancerArn" : { "Ref": "MBApploadBalancer" },
+        "Port" : 80,
+        "Protocol" : "HTTP"
+      }
+    },
+
+    "MBAlbHTTPSListener": {
+      "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties" : {
+        "DefaultActions": [{
+          "Type": "forward",
+          "TargetGroupArn": { "Ref": "MBAppTargetGroup" }
+        }],
+        "LoadBalancerArn" : { "Ref": "MBApploadBalancer" },
+        "Port" : 443,
+        "Protocol" : "HTTPS",
+        "Certificates": [
+          { "CertificateArn": { "Ref": "ACMCert1" } }
+       ]
+      }
+    },
+
+    "ListenerCertificate": {
+      "Type": "AWS::ElasticLoadBalancingV2::ListenerCertificate",
+      "Properties": {
+        "Certificates": [
+          { "CertificateArn": { "Ref": "ACMCert2" } },
+          { "CertificateArn": { "Ref": "ACMCert3" } }
+
+        ],
+        "ListenerArn": { "Ref": "MBAlbHTTPSListener" } }
+    },
+
+    "MBAppTargetGroup" : {
+      "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties" : {
+        "HealthCheckIntervalSeconds": 30,
+        "HealthCheckProtocol": "HTTP",
+        "HealthCheckTimeoutSeconds": 10,
+        "HealthyThresholdCount": 4,
+        "Matcher" : {
+          "HttpCode" : "200"
+        },
+        "Name": { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "ec2-targets"] ] },
+        "Port": 80,
+        "Protocol": "HTTP",
+        "TargetGroupAttributes": [
+          {
+            "Key": "deregistration_delay.timeout_seconds",
+            "Value": "20"
+          },
+          {
+            "Key": "stickiness.enabled",
+            "Value": true
+          }
+        ],
+        "Targets": [
+          { "Id": {"Ref" : "BackendEC2Instance"}, "Port": 80 }
+        ],
+        "UnhealthyThresholdCount": 3,
+        "VpcId": {"Ref" : "VPC"},
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "ec2-targets"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "AlbSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Backend server access",
+        "VpcId"            : { "Ref": "VPC" },
+        "SecurityGroupIngress" : [
+          {
+            "Description": "Allow HTTP",
+            "IpProtocol" : "tcp",
+            "FromPort"   : 80,
+            "ToPort"     : 80,
+            "CidrIp"     : "0.0.0.0/0"
+          },
+          {
+            "Description": "Allow HTTPS",
+            "IpProtocol" : "tcp",
+            "FromPort"   : 443,
+            "ToPort"     : 443,
+            "CidrIp"     : "0.0.0.0/0"
+          }
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "alb-sg"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "AlbToEC2OutboundRule": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties":{
+        "IpProtocol": "tcp",
+        "FromPort": "0",
+        "ToPort": "80",
+        "DestinationSecurityGroupId": {
+          "Fn::GetAtt": [
+            "EC2SecurityGroup",
+            "GroupId"
+          ]
+        },
+        "GroupId": {
+          "Fn::GetAtt": [
+            "AlbSecurityGroup",
+            "GroupId"
+          ]
+        }
+      }
+    },
+
+    "EC2SecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Backend server access",
+        "VpcId"            : { "Ref": "VPC" },
+        "SecurityGroupIngress" : [
+          {
+            "Description": "Allow SSH from Office1",
+            "IpProtocol" : "tcp",
+            "FromPort"   : 22,
+            "ToPort"     : 22,
+            "CidrIp"     : { "Ref": "OfficeAllowLocation1" }
+          },
+          {
+            "Description": "Allow SSH from Office2",
+            "IpProtocol" : "tcp",
+            "FromPort"   : 22,
+            "ToPort"     : 22,
+            "CidrIp"     : { "Ref": "OfficeAllowLocation2" }
+          },
+          {
+            "Description": "Allow SSH from home",
+            "IpProtocol" : "tcp",
+            "FromPort"   : 22,
+            "ToPort"     : 22,
+            "CidrIp"     : { "Ref": "HomeAllowLocation" }
+          },
+          {
+            "Description": "Allow HTTP from Load Balancer SG",
+            "IpProtocol" : "tcp",
+            "FromPort"   : 80,
+            "ToPort"     : 80,
+            "SourceSecurityGroupId" : { "Ref": "AlbSecurityGroup" }
+          }
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "ec2-sg"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "MasterDBSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "MariaDB server Access",
+        "VpcId"            : { "Ref": "VPC" },
+        "SecurityGroupIngress" : [
+          {
+            "Description": "Allow MariaDB access from the backend EC2",
+            "IpProtocol" : "tcp",
+            "FromPort"   : 3306,
+            "ToPort"     : 3306,
+            "SourceSecurityGroupId" : { "Ref": "EC2SecurityGroup" }
+          }
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "master-db-sg"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "ReplicaDBSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "MariaDB server Access",
+        "VpcId"            : { "Ref": "VPC" },
+        "SecurityGroupIngress" : [
+          {
+            "Description": "Allow MariaDB access from the Office1",
+            "IpProtocol" : "tcp",
+            "FromPort"   : 3306,
+            "ToPort"     : 3306,
+            "CidrIp"     : { "Ref": "OfficeAllowLocation1" }
+          },
+          {
+            "Description": "Allow MariaDB access from the Office2",
+            "IpProtocol" : "tcp",
+            "FromPort"   : 3306,
+            "ToPort"     : 3306,
+            "CidrIp"     : { "Ref": "OfficeAllowLocation2" }
+          }
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "replica-db-sg"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "MasterDBSubnetGroup" : {
+      "Type" : "AWS::RDS::DBSubnetGroup",
+      "Properties" : {
+        "DBSubnetGroupDescription" : "DB Subnets",
+        "SubnetIds" : [
+          { "Ref": "DBSubnet1a" },
+          { "Ref": "DBSubnet1b" }
+        ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "db-subnet-group"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "MasterDBParamGroup": {
+      "Type": "AWS::RDS::DBParameterGroup",
+      "Properties": {
+        "Description": "Master Database Parameter Group",
+        "Family": "mariadb10.1",
+        "Parameters" : {
+          "general_log" : 1,
+          "slow_query_log": 1,
+          "log_queries_not_using_indexes": 1
+        },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "db-params"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      }
+    },
+
+    "MasterRDS" : {
+      "Type" : "AWS::RDS::DBInstance",
+      "Properties" : {
+        "DBInstanceIdentifier" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "master-rds"] ] },
+        "DBSnapshotIdentifier": { "Ref" : "DBSnapshotIdentifier" },
+        "AllocatedStorage" : { "Ref" : "DBAllocatedStorage" },
+        "StorageType": "gp2",
+        "AutoMinorVersionUpgrade": false,
+        "PubliclyAccessible" : false,
+        "DBInstanceClass" : { "Ref" : "MasterDBInstanceClass" },
+        "DBSubnetGroupName" : { "Ref" : "MasterDBSubnetGroup" },
+        "DBParameterGroupName" : {"Ref" : "MasterDBParamGroup" },
+        "BackupRetentionPeriod": {"Ref" : "BackupRetentionPeriod" },
+        "PreferredBackupWindow": {"Ref" : "PreferredBackupWindow" },
+        "VPCSecurityGroups" : [ { "Fn::GetAtt" : [ "MasterDBSecurityGroup", "GroupId" ] } ],
+        "MultiAZ": {"Ref" : "MultiAZ" },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "master-rds"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      },
+      "DeletionPolicy" : "Snapshot"
+    },
+
+    "ReplicaRDS" : {
+      "Type" : "AWS::RDS::DBInstance",
+      "Properties" : {
+        "DBInstanceIdentifier" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "replica-rds"] ] },
+        "SourceDBInstanceIdentifier" : { "Ref" : "MasterRDS" },
+        "AutoMinorVersionUpgrade": false,
+        "PubliclyAccessible" : true,
+        "DBInstanceClass" : { "Ref" : "ReplicaDBInstanceClass" },
+        "VPCSecurityGroups" : [ { "Fn::GetAtt" : [ "ReplicaDBSecurityGroup", "GroupId" ] } ],
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "replica-rds"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ]
+      },
+      "DeletionPolicy" : "Delete"
+    },
+
+    "EC2IPAddress" : {
+      "Type" : "AWS::EC2::EIP",
+      "Properties" : {
+        "Domain" : "vpc"
+      }
+    },
+
+    "EC2DataEBS": {
+       "Type":"AWS::EC2::Volume",
+       "Properties" : {
+          "AvailabilityZone" : { "Fn::FindInMap" : [ "SubnetsAZs", "subnets", "EC2Subnet1a" ] },
+          "Size" : {"Ref" : "EC2DataEBSsize"},
+          "Tags" : [
+            {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "ec2-data-ebs"] ] } },
+            {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+          ],
+          "VolumeType" : "gp2"
+       }
+    },
+
+    "BackendEC2Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "ec2"] ] } },
+          {"Key" : "Env", "Value" : {"Ref" : "ENV"} }
+        ],
+        "InstanceType" : { "Ref" : "EC2InstanceType" },
+        "SecurityGroupIds" : [
+          {
+            "Ref": "EC2SecurityGroup"
+          }
+        ],
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Ref" : "AMIID"  },
+        "AvailabilityZone" : { "Fn::FindInMap" : [ "SubnetsAZs", "subnets", "EC2Subnet1a" ] },
+        "SubnetId": { "Ref" : "EC2Subnet1a" },
+        "Volumes" : [
+          {
+           "VolumeId" : { "Ref" : "EC2DataEBS" },
+           "Device" : "/dev/xvdb"
+          }
+        ],
+        "SourceDestCheck": "false"
+      }
+    },
+
+    "EC2EIPAssociation" : {
+      "Type": "AWS::EC2::EIPAssociation",
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "EC2IPAddress",
+            "AllocationId"
+          ]
+         },
+        "InstanceId": {"Ref" : "BackendEC2Instance"}
+      }
+    }
+
+  },
+
+  "Outputs" : {
+
+    "MasterJDBCConnectionString": {
+      "Description" : "JDBC connection string for the master database",
+      "Value" : { "Fn::Join": [ "", [ "jdbc:mysql://",
+                                      { "Fn::GetAtt": [ "MasterRDS", "Endpoint.Address" ] },
+                                      ":",
+                                      { "Fn::GetAtt": [ "MasterRDS", "Endpoint.Port" ] },
+                                      "/dbname,"
+                                      ]]}
+    },
+
+    "ReplicaJDBCConnectionString": {
+      "Description" : "JDBC connection string for the replica database",
+      "Value" : { "Fn::Join": [ "", [ "jdbc:mysql://",
+                                      { "Fn::GetAtt": [ "ReplicaRDS", "Endpoint.Address" ] },
+                                      ":",
+                                      { "Fn::GetAtt": [ "ReplicaRDS", "Endpoint.Port" ] },
+                                      "/dbname"
+                                      ]]}
+    },
+
+    "EC2PublicIP" : {
+      "Description" : "Public IP address of the EC2 instance",
+      "Value" : { "Fn::GetAtt" : [ "BackendEC2Instance", "PublicIp" ] }
+    },
+
+    "EC2KeyName" : {
+      "Description" : "Key Pair used for access to the EC2",
+      "Value" : {"Ref" : "KeyName"}
+    }
+  }
+}
