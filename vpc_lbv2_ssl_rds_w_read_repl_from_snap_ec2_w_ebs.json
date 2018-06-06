@@ -128,7 +128,7 @@
     "DBSnapshotIdentifier" : {
       "Description" : "Encrypted snapshot name to restore RDS instance from",
       "Type" : "String",
-      "Default" : "snapshot-name"
+      "Default" : "rds-test-snap"
     },
 
     "OfficeAllowLocation1": {
