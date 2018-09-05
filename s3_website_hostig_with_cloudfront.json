@@ -1,0 +1,116 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+
+  "Description": "AWS CloudFormation S3 website hosting with CloudFront CND stack",
+
+  "Parameters": {
+
+    "S3SiteBucketName": {
+      "Description": "S3 website hosting bucket name",
+      "Type": "String",
+      "Default": "site.azinchenko.com"
+    },
+
+    "SiteSSLARN": {
+      "Description": "site.azinchenko.com ACM SSL ARN",
+      "Type": "String"
+    }
+
+  },
+
+  "Resources": {
+
+    "SiteBucket": {
+      "Type": "AWS::S3::Bucket",
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "BucketName": {
+          "Ref": "S3SiteBucketName"
+        },
+        "WebsiteConfiguration": {
+          "IndexDocument": "index.html",
+          "ErrorDocument": "404.html"
+        }
+      }
+    },
+
+    "BucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "PolicyDocument": {
+          "Id": "MyPolicy",
+          "Version": "2012-10-17",
+          "Statement": [{
+            "Sid": "PublicReadForGetBucketObjects",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": { "Fn::Join": ["", [ "arn:aws:s3:::", { "Ref": "SiteBucket" }, "/*" ]] }
+          }]
+        },
+        "Bucket": {
+          "Ref": "SiteBucket"
+        }
+      }
+    },
+
+    "CloudFrontCDN": {
+      "Type": "AWS::CloudFront::Distribution",
+      "Properties": {
+        "DistributionConfig": {
+          "Comment": "Example WebSite CDN",
+          "Enabled": true,
+          "DefaultRootObject" : "index.html",
+          "DefaultCacheBehavior": {
+            "TargetOriginId": {
+              "Ref": "SiteBucket"
+            },
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "MinTTL": 0,
+            "AllowedMethods": [
+              "HEAD",
+              "GET"
+            ],
+            "CachedMethods": [
+              "HEAD",
+              "GET"
+            ],
+            "ForwardedValues": {
+              "QueryString": false,
+              "Cookies": {
+                "Forward": "none"
+              }
+            }
+          },
+          "Aliases" : [ {"Ref": "S3SiteBucketName"} ],
+          "Origins": [
+            {
+              "DomainName": { "Fn::Join": [ ".", [ {"Ref": "SiteBucket"}, "s3-website.eu-west-1.amazonaws.com" ] ] },
+              "Id": {
+                "Ref": "SiteBucket"
+              },
+              "CustomOriginConfig": {
+                "HTTPPort": "80",
+                "HTTPSPort": "443",
+                "OriginProtocolPolicy": "http-only"
+              }
+            }
+          ],
+          "ViewerCertificate": {
+            "SslSupportMethod": "sni-only",
+            "MinimumProtocolVersion": "TLSv1",
+            "AcmCertificateArn": {
+              "Ref": "SiteSSLARN"
+            }
+          }
+        },
+        "Tags" : [
+          {"Key" : "Name", "Value" : { "Fn::Join" : [ "-", [ {"Ref" : "AWS::StackName"}, "site-cdn"] ] } }
+        ]
+      }
+    }
+
+  }
+
+}
+
