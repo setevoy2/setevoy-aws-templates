@@ -1,0 +1,45 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation SecurityGroups stack",
+
+  "Parameters" : {
+    "VPCID": {
+      "Description": "Network Stack VPC ID",
+      "Type": "String",
+    }
+  },
+
+  "Resources" : {
+    "SecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Example SecurityGroup",
+        "VpcId"            : { "Ref": "VPCID" },
+        "SecurityGroupIngress" : [
+          {
+            "Description": "Allow HTTP",
+            "IpProtocol" : "tcp",
+            "FromPort"   : 80,
+            "ToPort"     : 80,
+            "CidrIp"     : "0.0.0.0/0"
+          },
+          {
+            "Description": "Allow HTTPS",
+            "IpProtocol" : "tcp",
+            "FromPort"   : 443,
+            "ToPort"     : 443,
+            "CidrIp"     : "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+  },
+
+  "Outputs" : {
+    "SecurityGroupID" : {
+      "Description" : "The SecurityGroup ID",
+      "Value" :  { "Ref" : "SecurityGroup" }
+    }
+  }
+}

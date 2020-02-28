@@ -1,0 +1,67 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "AWS CloudFormation Root stack",
+
+  "Mappings": {
+    "VPCCIDRBlock": {
+      "vpc1": {
+        "vpccidr": "11.0.0.0/16"
+      },
+      "vpc2": {
+        "vpccidr": "12.0.0.0/16"
+      }
+    }
+  },
+
+  "Resources" : {
+    "VPCStack1": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "network-stack.yml",
+        "Parameters": {
+          "VPCCIDRBlock" : { "Fn::FindInMap" : [ "VPCCIDRBlock", "vpc1", "vpccidr" ] }
+        }
+      }
+    },
+    "VPCStack2": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "network-stack.yml",
+        "Parameters": {
+          "VPCCIDRBlock" : { "Fn::FindInMap" : [ "VPCCIDRBlock", "vpc2", "vpccidr" ] }
+        }
+      }
+    },
+    "SecurityGroupStack1": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "sg-stack.yml",
+        "Parameters": {
+          "VPCID" : { "Fn::GetAtt": ["VPCStack1", "Outputs.VPCID"] }
+        }
+      }
+    },
+    "SecurityGroupStack2": {
+      "Type": "AWS::CloudFormation::Stack",
+      "Properties": {
+        "TemplateURL": "sg-stack.yml",
+        "Parameters": {
+          "VPCID" : { "Fn::GetAtt": ["VPCStack2", "Outputs.VPCID"] }
+        }
+      }
+    }
+  },
+
+  "Outputs" : {
+    "SecurityGroup1" : {
+      "Description" : "The SecurityGroup-1 ID",
+      "Value" :  { "Fn::GetAtt": [ "SecurityGroupStack1", "Outputs.SecurityGroupID" ] },
+      "Export": { "Name": { "Fn::Sub": "${AWS::StackName}-SecurityGroupStack1" } }
+    },
+    "SecurityGroup2" : {
+      "Description" : "The SecurityGroup-2 ID",
+      "Value" :  { "Fn::GetAtt": [ "SecurityGroupStack2", "Outputs.SecurityGroupID" ] },
+      "Export": { "Name": { "Fn::Sub": "${AWS::StackName}-SecurityGroupStack2" } }
+    }
+  }
+}

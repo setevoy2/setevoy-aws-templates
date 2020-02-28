@@ -1,0 +1,27 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "AWS CloudFormation Nested Network stack",
+
+  "Parameters": {
+    "VPCCIDRBlock": {
+      "Description": "VPC CidrBlock",
+      "Type": "String"
+    }
+  },
+
+  "Resources" : {
+    "VPC" : {
+      "Type" : "AWS::EC2::VPC",
+      "Properties" : {
+        "CidrBlock" : { "Ref": "VPCCIDRBlock" }
+      }
+    }
+  },
+
+  "Outputs" : {
+    "VPCID" : {
+      "Description" : "EKS VPC ID",
+      "Value" : { "Ref" : "VPC" }
+    }
+  }
+}
